@@ -4,14 +4,21 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-)
 
-var links map[string]string
+	"github.com/go-redis/redis"
+)
 
 const baseURL = "localhost:9090/"
 
+var client *redis.Client
+
 func main() {
-	links = make(map[string]string)
+	redisAddress := "localhost:6379"
+	client = redis.NewClient(&redis.Options{
+		Addr:     redisAddress,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
 
 	http.HandleFunc("/", redirectHandler)
 	http.HandleFunc("/shorten", shortenHandler)
@@ -30,9 +37,9 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		shortPath := ""
-		for shortPath = generateRandomName(5); links[shortPath] != ""; shortPath = generateRandomName(5) {
+		for shortPath = generateRandomName(5); client.Exists("/"+shortPath).Val() == 1; shortPath = generateRandomName(5) {
 		}
-		links["/"+shortPath] = longURL
+		client.Set("/"+shortPath, longURL, -1)
 		w.Write([]byte(baseURL + shortPath))
 	}
 }
@@ -47,7 +54,7 @@ func generateRandomName(length int) (out string) {
 }
 
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
-	longURL := links[r.RequestURI]
+	longURL := client.Get(r.RequestURI).String()
 	if longURL != "" {
 		http.Redirect(w, r, longURL, 301)
 	} else {
