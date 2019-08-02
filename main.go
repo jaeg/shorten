@@ -30,7 +30,7 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		shortPath := ""
-		for shortPath = generateRandomName(5); links[shortPath] != ""; shortPath = generateRandomName(5) {
+		for shortPath = generateRandomName(5); links["/"+shortPath] != ""; shortPath = generateRandomName(5) {
 		}
 		links["/"+shortPath] = longURL
 		w.Write([]byte(baseURL + shortPath))
