@@ -1,56 +1,27 @@
 package main
 
 import (
-	"log"
-	"math/rand"
-	"net/http"
+	"context"
+	"os"
+	"os/signal"
+
+	"github.com/jaeg/shorten/app"
 )
 
-var links map[string]string
-
-const baseURL = "localhost:9090/"
-
 func main() {
-	links = make(map[string]string)
+	app := &app.App{}
+	app.Init()
 
-	http.HandleFunc("/", redirectHandler)
-	http.HandleFunc("/shorten", shortenHandler)
-	err := http.ListenAndServe(":9090", nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
-	}
-}
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
 
-func shortenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		longURL := r.FormValue("url")
-		if longURL == "" {
-			w.Write([]byte("Invalid"))
-			return
-		}
+	ctx, cancel := context.WithCancel(context.Background())
 
-		shortPath := ""
-		for shortPath = generateRandomName(5); links["/"+shortPath] != ""; shortPath = generateRandomName(5) {
-		}
-		links["/"+shortPath] = longURL
-		w.Write([]byte(baseURL + shortPath))
-	}
-}
+	go func() {
+		<-c
 
-func generateRandomName(length int) (out string) {
-	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-	for i := 0; i < length; i++ {
-		out += string(chars[rand.Intn(len(chars))])
-	}
+		cancel()
+	}()
 
-	return
-}
-
-func redirectHandler(w http.ResponseWriter, r *http.Request) {
-	longURL := links[r.RequestURI]
-	if longURL != "" {
-		http.Redirect(w, r, longURL, 301)
-	} else {
-		w.Write([]byte("Invalid Link"))
-	}
+	app.Run(ctx)
 }
