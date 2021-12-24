@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/logger"
@@ -22,6 +23,7 @@ var keyFile = flag.String("key-file", "", "location of key file")
 var port = flag.String("port", "8090", "port to host on")
 var logPath = flag.String("log-path", "./logs.txt", "Logs location")
 var baseUrl = flag.String("base-url", "localhost:8090", "Base url for shortened result")
+var shortLength = flag.Int("shortened-length", 5, "The length of the shortned url")
 
 type Response struct {
 	Link  string `json:"link,omitempty"`
@@ -35,10 +37,12 @@ type Request struct {
 type App struct {
 	links map[string]string
 	srv   *http.Server
+	lock  *sync.Mutex
 }
 
 func (a *App) Init() {
 	a.links = make(map[string]string)
+	a.lock = &sync.Mutex{}
 	flag.Parse()
 	//Start the logger
 	lf, err := os.OpenFile(*logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
@@ -114,10 +118,23 @@ func (a *App) handleShorten(w http.ResponseWriter, r *http.Request) {
 		}
 
 		shortPath := ""
-		for shortPath = generateRandomName(5); a.links["/"+shortPath] != ""; shortPath = generateRandomName(5) {
+		tries := 0
+		a.lock.Lock()
+		for shortPath = generateRandomName(*shortLength); a.links["/"+shortPath] != ""; shortPath = generateRandomName(*shortLength) {
+			if tries == 0 {
+				logger.Info("Randomly generated name clashed with existing, could be sign of getting full")
+			}
+			if tries > 100 {
+				ErrorWithJson(w, "Exceeded attempts to generate a unqiue short url", http.StatusBadRequest)
+				logger.Error("Exceeded attempts to generate a unqiue short url.")
+				a.lock.Unlock()
+				return
+			}
+
+			tries++
 		}
 		a.links["/"+shortPath] = req.Link
-
+		a.lock.Unlock()
 		RespondWithJson(w, *baseUrl+"/"+shortPath)
 	}
 }

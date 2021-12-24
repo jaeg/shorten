@@ -1,4 +1,4 @@
-REPO = jaeg/shorten
+REPO = ghcr.io/jaeg/shorten
 BINARY = shorten
 
 TAG_COMMIT := $(shell git rev-list --abbrev-commit --tags --max-count=1)

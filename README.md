@@ -12,7 +12,8 @@ Simple link shortener.
         Logs location (default "./logs.txt")
 -  -port string
         port to host on (default "8090")
-
+-  -shortened-length int
+        The length of the shortned url (default 5)
 ### How to Run
 #### Option 1: From source
 - `make vendor`
